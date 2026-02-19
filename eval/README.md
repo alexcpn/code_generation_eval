@@ -44,10 +44,70 @@ Sends prompts to model APIs automatically, saves solutions, scores them.
 python run_eval.py --auto                                    # All models
 python run_eval.py --auto --model claude-opus                # One model
 python run_eval.py --auto --model gpt-4o -c c01_off_by_one  # One model, one challenge
+
+python run_eval.py --auto --model gemini-2.5-flash -c c01_off_by_one
 python run_eval.py --auto --rerun                            # Ignore cached solutions
 ```
 
-Solutions are cached in `results/<model_name>/solutions/`. Re-running skips models that already have solutions (use `--rerun` to force regeneration).
+Solutions are cached in `results/<model_name>/solutions/`.
+
+Example
+
+Models https://ai.google.dev/gemini-api/docs/models Add in eval_config.yaml
+
+Get your Gemini key from https://aistudio.google.com/app/api-keys
+
+export GOOGLE_API_KEY=xxx ()
+
+`$ python3 run_eval.py --auto --model gemini-2.5-flash -c c01_off_by_one`
+
+```
+  Model: gemini-2.5-flash (openai/gemini-2.5-flash)
+  Output: solutions/gemini-2.5-flash/2026-02-19_154446/
+  ───────────────────────────────────────────────────────
+  c01_off_by_one: querying gemini-2.5-flash... (16.4s) -> [PASS] 8.0/8
+
+============================================================
+  AI CODE GENERATION EVAL — Python — gemini-2.5-flash/2026-02-19_154446
+============================================================
+
+  Category                          Score    Pct
+  ────────────────────────────────────────────────
+  Algorithmic Correctness         8.0/8     100%
+  ────────────────────────────────────────────────
+  TOTAL                           8.0/8     100%
+
+  Model tier: Opus-class (state of the art)
+
+  Re-score: python3 run_eval.py --score -c gemini-2.5-flash/2026-02-19_154446
+```
+
+`$ python3 run_eval.py --auto --model gemini-2.5-flash -c c11_algorithmic_hard`
+
+```
+  Model: gemini-2.5-flash (openai/gemini-2.5-flash)
+  Output: solutions/gemini-2.5-flash/2026-02-19_154626/
+  ───────────────────────────────────────────────────────
+  c11_algorithmic_hard: querying gemini-2.5-flash... (35.0s) -> [PARTIAL] 0.0/15
+
+============================================================
+  AI CODE GENERATION EVAL — Python — gemini-2.5-flash/2026-02-19_154626
+============================================================
+
+  Category                          Score    Pct
+  ────────────────────────────────────────────────
+  Algorithmic Correctness         0.0/15      0%
+  ────────────────────────────────────────────────
+  TOTAL                           0.0/15      0%
+
+  Weaknesses:
+    - Algorithmic Correctness: c11_algorithmic_hard (0/14 tests passed)
+
+  Model tier: Below mid-tier — review AI output carefully
+
+  Re-score: python3 run_eval.py --score -c gemini-2.5-flash/2026-02-19_154626
+```
+
 
 ### Manual Mode
 For models without API access (e.g., Claude Code, Cursor, ChatGPT web).

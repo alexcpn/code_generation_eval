@@ -1,8 +1,15 @@
 """
 AI provider abstraction for eval runner.
 
-Each provider implements: send_prompt(system, user) -> str
-Keeps dependencies minimal — only imports the SDK you actually use.
+Supported providers:
+  anthropic — Claude models via Anthropic SDK  (pip install anthropic)
+  openai    — Any OpenAI-compatible API        (pip install openai)
+              This includes: OpenAI, Google Gemini, DeepSeek, Together, etc.
+              Set api_base in eval_config.yaml to point to the right endpoint.
+
+Google Gemini OpenAI-compatible endpoint:
+  api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+  api_key_env: GOOGLE_API_KEY
 """
 
 import os
@@ -116,32 +123,10 @@ def send_openai(system: str, user: str, config: dict) -> str:
     return response.choices[0].message.content
 
 
-def send_google(system: str, user: str, config: dict) -> str:
-    """Send prompt via Google Gemini API."""
-    try:
-        from google import genai
-        from google.genai import types
-    except ImportError:
-        raise ImportError("pip install google-genai")
-
-    client = genai.Client(api_key=_resolve_api_key(config))
-    response = client.models.generate_content(
-        model=config["model"],
-        contents=user,
-        config=types.GenerateContentConfig(
-            system_instruction=system,
-            temperature=config.get("temperature", 0.0),
-            max_output_tokens=config.get("max_tokens", 8192),
-        ),
-    )
-    return response.text
-
-
 # Provider dispatch
 PROVIDERS = {
     "anthropic": send_anthropic,
     "openai": send_openai,
-    "google": send_google,
 }
 
 

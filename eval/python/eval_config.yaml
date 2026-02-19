@@ -54,18 +54,28 @@ models:
     temperature: 1.0               # o-series requires temperature=1
     max_tokens: 16384
 
-  # --- Google Gemini ---
-  gemini-2.5-pro:
-    provider: google
-    model: gemini-2.5-pro-preview-06-05
+  # --- Google Gemini (via OpenAI-compatible endpoint — no extra SDK needed) ---
+  gemini-3-pro:
+    provider: openai
+    model: gemini-3-pro-preview
     api_key_env: GOOGLE_API_KEY
+    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+    temperature: 0.0
+    max_tokens: 8192
+
+  gemini-2.5-pro:
+    provider: openai
+    model: gemini-2.5-pro
+    api_key_env: GOOGLE_API_KEY
+    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
     temperature: 0.0
     max_tokens: 8192
 
   gemini-2.5-flash:
-    provider: google
-    model: gemini-2.5-flash-preview-05-20
+    provider: openai
+    model: gemini-2.5-flash
     api_key_env: GOOGLE_API_KEY
+    api_base: https://generativelanguage.googleapis.com/v1beta/openai/
     temperature: 0.0
     max_tokens: 8192
 

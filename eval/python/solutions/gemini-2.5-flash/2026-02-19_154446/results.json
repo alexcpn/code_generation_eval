@@ -1,0 +1,19 @@
+{
+  "model_name": "gemini-2.5-flash",
+  "provider": "openai",
+  "model_id": "gemini-2.5-flash",
+  "timestamp": "2026-02-19_154446",
+  "run_dir": "/ssd/articles/ai-first-coding/eval/python/solutions/gemini-2.5-flash/2026-02-19_154446",
+  "results": [
+    {
+      "name": "c01_off_by_one",
+      "category": "algorithmic_correctness",
+      "points_earned": 8.0,
+      "points_total": 8,
+      "passed": 8,
+      "failed": 0,
+      "errors": 0,
+      "details": "8/8 tests passed"
+    }
+  ]
+}

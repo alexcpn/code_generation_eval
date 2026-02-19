@@ -220,15 +220,22 @@ def load_config() -> dict:
 
 def run_auto(challenges: list[ChallengeInfo], model_name: str, model_config: dict,
              system_prompt: str, specific_challenge: str = None):
-    """Send challenge prompts to a model, save solutions, score them."""
+    """Send challenge prompts to a model, save solutions, score them.
+
+    Solutions are saved under:  solutions/<model_name>/<timestamp>/
+    e.g. solutions/gpt-4o/2026-02-19_114523/
+    """
     from providers import send_prompt, extract_code
 
-    # Create per-model solutions and results directories
-    model_solutions = RESULTS_DIR / model_name / "solutions"
-    model_solutions.mkdir(parents=True, exist_ok=True)
-    (model_solutions / "__init__.py").touch()
+    # Create timestamped run directory under solutions/<model>/
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    run_dir = SOLUTIONS_DIR / model_name / timestamp
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "__init__.py").touch()
 
+    run_label = f"{model_name}/{timestamp}"
     print(f"\n  Model: {model_name} ({model_config['provider']}/{model_config['model']})")
+    print(f"  Output: solutions/{run_label}/")
     print(f"  {'─'*55}")
 
     results = []
@@ -236,54 +243,55 @@ def run_auto(challenges: list[ChallengeInfo], model_name: str, model_config: dic
         if specific_challenge and c.name != specific_challenge:
             continue
 
-        solution_file = model_solutions / f"{c.name}.py"
+        solution_file = run_dir / f"{c.name}.py"
 
-        # Check if solution already exists (skip re-generation)
-        if solution_file.exists() and solution_file.stat().st_size > 0:
-            print(f"  {c.name}: cached", end="", flush=True)
-        else:
-            print(f"  {c.name}: querying {model_config['model']}...", end="", flush=True)
-            try:
-                start = time.time()
-                raw_response = send_prompt(system_prompt, c.prompt, model_config)
-                elapsed = time.time() - start
-                code = extract_code(raw_response)
-                solution_file.write_text(code)
+        print(f"  {c.name}: querying {model_config['model']}...", end="", flush=True)
+        try:
+            start = time.time()
+            raw_response = send_prompt(system_prompt, c.prompt, model_config)
+            elapsed = time.time() - start
+            code = extract_code(raw_response)
+            solution_file.write_text(code)
 
-                # Also save raw response for debugging
-                raw_file = model_solutions / f"{c.name}.raw.txt"
-                raw_file.write_text(raw_response)
+            # Also save raw response for debugging
+            raw_file = run_dir / f"{c.name}.raw.txt"
+            raw_file.write_text(raw_response)
 
-                print(f" ({elapsed:.1f}s)", end="", flush=True)
-            except Exception as e:
-                print(f" ERROR: {e}")
-                results.append(ChallengeResult(
-                    name=c.name, category=c.category,
-                    points_earned=0, points_total=c.points,
-                    passed=0, failed=0, errors=1, details=f"API ERROR: {e}",
-                ))
-                continue
+            print(f" ({elapsed:.1f}s)", end="", flush=True)
+        except Exception as e:
+            print(f" ERROR: {e}")
+            results.append(ChallengeResult(
+                name=c.name, category=c.category,
+                points_earned=0, points_total=c.points,
+                passed=0, failed=0, errors=1, details=f"API ERROR: {e}",
+            ))
+            continue
 
         # Score it
-        r = run_challenge_tests(c, solutions_dir=model_solutions)
+        r = run_challenge_tests(c, solutions_dir=run_dir)
         results.append(r)
         status = "PASS" if r.points_earned == r.points_total else "PARTIAL"
         print(f" -> [{status}] {r.points_earned}/{r.points_total}")
 
-    # Save results JSON
-    results_file = RESULTS_DIR / model_name / "results.json"
+    # Save results JSON alongside solutions
+    results_file = run_dir / "results.json"
     results_data = {
         "model_name": model_name,
         "provider": model_config["provider"],
         "model_id": model_config["model"],
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": timestamp,
+        "run_dir": str(run_dir),
         "results": [asdict(r) for r in results],
     }
     with open(results_file, "w") as f:
         json.dump(results_data, f, indent=2)
 
     # Display scorecard
-    display_scorecard(results, title=f"Python — {model_name}")
+    display_scorecard(results, title=f"Python — {run_label}")
+
+    # Print re-score command for convenience
+    print(f"  Re-score: python3 run_eval.py --score -c {run_label}")
+    print()
 
     return results
 
@@ -369,18 +377,45 @@ def show_prompts(challenges: list[ChallengeInfo], specific: str = None):
 
 
 def run_compare():
-    """Compare results across all evaluated models."""
-    if not RESULTS_DIR.exists():
-        print("No results yet. Run --auto first.")
-        return
+    """Compare results across all evaluated models.
 
+    Finds results.json in:
+      solutions/<model>/<timestamp>/results.json   (auto mode)
+      results/<model>/results.json                 (legacy)
+
+    For each model, uses the latest timestamped run.
+    """
     all_results = {}
-    for model_dir in sorted(RESULTS_DIR.iterdir()):
-        results_file = model_dir / "results.json"
-        if results_file.exists():
-            with open(results_file) as f:
-                data = json.load(f)
-                all_results[data["model_name"]] = data
+
+    # Scan solutions/<model>/<timestamp>/results.json
+    if SOLUTIONS_DIR.exists():
+        for model_dir in sorted(SOLUTIONS_DIR.iterdir()):
+            if not model_dir.is_dir() or model_dir.name.startswith("__"):
+                continue
+            # Find latest timestamped subdir with results.json
+            run_dirs = sorted(
+                [d for d in model_dir.iterdir()
+                 if d.is_dir() and (d / "results.json").exists()],
+                key=lambda d: d.name,
+                reverse=True,
+            )
+            if run_dirs:
+                with open(run_dirs[0] / "results.json") as f:
+                    data = json.load(f)
+                    label = f"{model_dir.name}/{run_dirs[0].name}"
+                    data["_label"] = label
+                    all_results[label] = data
+
+    # Also scan legacy results/<model>/results.json
+    if RESULTS_DIR.exists():
+        for model_dir in sorted(RESULTS_DIR.iterdir()):
+            results_file = model_dir / "results.json"
+            if results_file.exists():
+                with open(results_file) as f:
+                    data = json.load(f)
+                    label = data["model_name"]
+                    if label not in all_results:
+                        all_results[label] = data
 
     if not all_results:
         print("No results found.")
@@ -474,7 +509,7 @@ Examples:
   python run_eval.py --auto --model claude-opus             # Run one model
   python run_eval.py --auto --model gpt-4o -c c01_off_by_one  # One model, one challenge
   python run_eval.py --compare                              # Side-by-side comparison
-  python run_eval.py --auto --rerun                         # Re-run (ignore cached solutions)
+  python run_eval.py --score -c gpt-4o/2026-02-19_114523    # Score a timestamped auto run
         """,
     )
     parser.add_argument("--prompts", action="store_true", help="Show all challenge prompts")
@@ -484,7 +519,6 @@ Examples:
     parser.add_argument("--model", "-m", type=str, help="Specific model name from eval_config.yaml")
     parser.add_argument("--challenge", "-c", type=str, help="Specific challenge name")
     parser.add_argument("--compare", action="store_true", help="Compare all evaluated models")
-    parser.add_argument("--rerun", action="store_true", help="Re-generate solutions (ignore cache)")
     args = parser.parse_args()
 
     challenges = discover_challenges()
@@ -497,31 +531,39 @@ Examples:
 
     elif args.score:
         # Resolve model folder and challenge filter from -c argument.
-        # Supports:  -c c01_off_by_one              (solutions/)
-        #            -c gemini3_fast/c01_off_by_one  (solutions/gemini3_fast/)
-        #            -c gemini3_fast                 (all challenges in that folder)
+        # Supports:
+        #   -c c01_off_by_one                             solutions/c01_off_by_one.py
+        #   -c haiku4.5                                   solutions/haiku4.5/  (all challenges)
+        #   -c haiku4.5/c01_off_by_one                    solutions/haiku4.5/c01_off_by_one.py
+        #   -c gpt-4o/2026-02-19_114523                   solutions/gpt-4o/2026-02-19_114523/ (all)
+        #   -c gpt-4o/2026-02-19_114523/c01_off_by_one    solutions/gpt-4o/2026-02-19_114523/c01.py
         sol_dir = SOLUTIONS_DIR
         challenge_filter = args.challenge
         model_label = None
 
         if challenge_filter:
-            if "/" in challenge_filter:
-                parts = challenge_filter.split("/", 1)
-                model_label = parts[0]
-                challenge_filter = parts[1] if parts[1] else None
-                sol_dir = SOLUTIONS_DIR / model_label
-            else:
-                # Could be a model folder name (no matching challenge) or a challenge name
-                candidate_dir = SOLUTIONS_DIR / challenge_filter
-                if candidate_dir.is_dir():
-                    model_label = challenge_filter
-                    sol_dir = candidate_dir
-                    challenge_filter = None
-
-            if not sol_dir.exists():
-                print(f"Error: solutions directory not found: {sol_dir}")
-                print(f"Available: {', '.join(d.name for d in SOLUTIONS_DIR.iterdir() if d.is_dir() and d.name != '__pycache__')}")
-                sys.exit(1)
+            # Try the full path as a directory first
+            candidate = SOLUTIONS_DIR / challenge_filter
+            if candidate.is_dir():
+                # It's a folder path (model, model/timestamp, etc.)
+                sol_dir = candidate
+                model_label = challenge_filter
+                challenge_filter = None
+            elif "/" in challenge_filter:
+                # Split off the last segment as challenge name
+                parent_path, ch_name = challenge_filter.rsplit("/", 1)
+                parent_dir = SOLUTIONS_DIR / parent_path
+                if parent_dir.is_dir():
+                    sol_dir = parent_dir
+                    model_label = parent_path
+                    challenge_filter = ch_name
+                else:
+                    print(f"Error: directory not found: solutions/{parent_path}")
+                    avail = [d.name for d in SOLUTIONS_DIR.iterdir()
+                             if d.is_dir() and not d.name.startswith("__")]
+                    print(f"Available: {', '.join(sorted(avail))}")
+                    sys.exit(1)
+            # else: plain challenge name, use default solutions/
 
         title = f"Python — {model_label}" if model_label else "Python"
         results = []
@@ -548,19 +590,8 @@ Examples:
                 print(f"Error: model '{args.model}' not found in eval_config.yaml")
                 print(f"Available: {', '.join(models_config.keys())}")
                 sys.exit(1)
-            model_cfg = models_config[args.model]
-
-            if args.rerun:
-                # Delete cached solutions
-                model_sol = RESULTS_DIR / args.model / "solutions"
-                if model_sol.exists():
-                    for f in model_sol.glob("*.py"):
-                        if f.name != "__init__.py":
-                            f.unlink()
-                    for f in model_sol.glob("*.raw.txt"):
-                        f.unlink()
-
-            run_auto(challenges, args.model, model_cfg, system_prompt, args.challenge)
+            run_auto(challenges, args.model, models_config[args.model],
+                     system_prompt, args.challenge)
         else:
             # Run all models
             for model_name, model_cfg in models_config.items():

@@ -1,0 +1,19 @@
+{
+  "model_name": "gemini-2.5-flash",
+  "provider": "openai",
+  "model_id": "gemini-2.5-flash",
+  "timestamp": "2026-02-19_154626",
+  "run_dir": "/ssd/articles/ai-first-coding/eval/python/solutions/gemini-2.5-flash/2026-02-19_154626",
+  "results": [
+    {
+      "name": "c11_algorithmic_hard",
+      "category": "algorithmic_correctness",
+      "points_earned": 0.0,
+      "points_total": 15,
+      "passed": 0,
+      "failed": 14,
+      "errors": 0,
+      "details": "0/14 tests passed\n    Failures:\n      - FAILED challenges/c11_algorithmic_hard.py::TestBasicResolution::test_simple_chain\n      - FAILED challenges/c11_algorithmic_hard.py::TestBasicResolution::test_no_dependencies\n      - FAILED challenges/c11_algorithmic_hard.py::TestBasicResolution::test_empty_input\n      - FAILED challenges/c11_algorithmic_hard.py::TestDiamondDependency::test_diamond\n      - FAILED challenges/c11_algorithmic_hard.py::TestDiamondDependency::test_deep_diamond\n      - FAILED challenges/c11_algorithmic_hard.py::TestAlphabeticalStability::test_deterministic_ordering\n      - FAILED challenges/c11_algorithmic_hard.py::TestAlphabeticalStability::test_stable_across_runs\n      - FAILED challenges/c11_algorithmic_hard.py::TestCycleDetection::test_simple_cycle\n      - FAILED challenges/c11_algorithmic_hard.py::TestCycleDetection::test_self_dependency\n      - FAILED challenges/c11_algorithmic_hard.py::TestCycleDetection::test_long_cycle\n      - FAILED challenges/c11_algorithmic_hard.py::TestCycleDetection::test_cycle_plus_valid_subgraph\n      - FAILED challenges/c11_algorithmic_hard.py::TestErrorHandling::test_missing_dependency\n      - FAILED challenges/c11_algorithmic_hard.py::TestErrorHandling::test_duplicate_task_names\n      - FAILED challenges/c11_algorithmic_hard.py::TestErrorHandling::test_disconnected_subgraphs\n"
+    }
+  ]
+}
