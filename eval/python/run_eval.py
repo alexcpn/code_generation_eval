@@ -134,14 +134,33 @@ def run_challenge_tests(challenge: ChallengeInfo, solutions_dir: Path = None) ->
             passed=0, failed=0, errors=0, details="NO SOLUTION FILE",
         )
 
-    # Set PYTHONPATH so challenge imports resolve to the right solutions dir
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(sol_dir.parent)
+    # Challenges import from "solutions.<name>". When solutions live in a
+    # model subfolder (e.g. solutions/gemini3_fast/), we temporarily copy
+    # the solution file into the main solutions/ dir, run the test, then
+    # remove it. This avoids all pytest sys.path and rootdir complications.
+    import shutil
+    temp_copy = None
 
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", str(challenge.file_path), "-v", "--tb=short", "-q"],
-        capture_output=True, text=True, cwd=str(EVAL_DIR), env=env, timeout=120,
-    )
+    if sol_dir != SOLUTIONS_DIR:
+        temp_copy = SOLUTIONS_DIR / f"{challenge.name}.py"
+        # Back up if a file already exists there (shouldn't normally happen)
+        backup = None
+        if temp_copy.exists():
+            backup = temp_copy.with_suffix(".py.bak")
+            shutil.copy2(temp_copy, backup)
+        shutil.copy2(solution_file, temp_copy)
+
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", str(challenge.file_path),
+             "-v", "--tb=short", "-q"],
+            capture_output=True, text=True, cwd=str(EVAL_DIR), timeout=120,
+        )
+    finally:
+        if temp_copy and temp_copy.exists():
+            temp_copy.unlink()
+            if backup and backup.exists():
+                shutil.move(str(backup), str(temp_copy))
 
     output = result.stdout + result.stderr
     passed = failed = errors = 0
