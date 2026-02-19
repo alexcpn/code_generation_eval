@@ -1,0 +1,79 @@
+# AI Code Generation Eval — Configuration
+#
+# Define the models you want to evaluate.
+# API keys can be set here or as environment variables (env vars take precedence).
+#
+# Usage:
+#   python run_eval.py --auto                          # Run all models
+#   python run_eval.py --auto --model claude-opus      # Run one model
+#   python run_eval.py --auto --model gpt-4o --challenge c01_off_by_one  # One model, one challenge
+
+# System prompt sent to every model before the challenge prompt
+system_prompt: |
+  You are a senior Python developer. Write clean, production-quality Python code.
+  Return ONLY the Python code — no explanations, no markdown fences, no commentary.
+  If the prompt asks for a function, write the function. If it asks for a class, write the class.
+  Include all necessary imports at the top.
+
+models:
+  # --- Anthropic ---
+  claude-opus:
+    provider: anthropic
+    model: claude-opus-4-6
+    api_key_env: ANTHROPIC_API_KEY    # reads from this env var
+    # api_key: sk-ant-...            # or hardcode (not recommended)
+    temperature: 0.0
+    max_tokens: 4096
+
+  claude-sonnet:
+    provider: anthropic
+    model: claude-sonnet-4-6
+    api_key_env: ANTHROPIC_API_KEY
+    temperature: 0.0
+    max_tokens: 4096
+
+  # --- OpenAI ---
+  gpt-4o:
+    provider: openai
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+    temperature: 0.0
+    max_tokens: 4096
+
+  gpt-4o-mini:
+    provider: openai
+    model: gpt-4o-mini
+    api_key_env: OPENAI_API_KEY
+    temperature: 0.0
+    max_tokens: 4096
+
+  o3:
+    provider: openai
+    model: o3
+    api_key_env: OPENAI_API_KEY
+    temperature: 1.0               # o-series requires temperature=1
+    max_tokens: 16384
+
+  # --- Google Gemini ---
+  gemini-2.5-pro:
+    provider: google
+    model: gemini-2.5-pro-preview-06-05
+    api_key_env: GOOGLE_API_KEY
+    temperature: 0.0
+    max_tokens: 8192
+
+  gemini-2.5-flash:
+    provider: google
+    model: gemini-2.5-flash-preview-05-20
+    api_key_env: GOOGLE_API_KEY
+    temperature: 0.0
+    max_tokens: 8192
+
+  # --- DeepSeek ---
+  # deepseek-v3:
+  #   provider: openai              # DeepSeek uses OpenAI-compatible API
+  #   model: deepseek-chat
+  #   api_key_env: DEEPSEEK_API_KEY
+  #   api_base: https://api.deepseek.com/v1
+  #   temperature: 0.0
+  #   max_tokens: 4096
