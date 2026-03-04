@@ -87,12 +87,12 @@ python run_eval.py --prompt c01_off_by_one      # One challenge: show prompt, pa
 python run_eval.py --prompts                    # All challenges in a loop (ESC )
 
 # Workflow:
-# 1. The prompt is printed to the terminal
-# 2. Paste the model's response, then press Ctrl+D to submit
-# 3. Solution is saved to solutions/manual/<timestamp>/<challenge>.py
-# 4. Auto-scored immediately; result printed inline
-# 5. For --prompts: press Enter to continue to next challenge, ESC to exit
-# 6. Re-score the whole session: python run_eval.py --score -c manual/<timestamp>
+- 1. The prompt is printed to the terminal
+- 2. Paste the model's response, then press Ctrl+D to submit
+- 3. Solution is saved to solutions/manual/<timestamp>/<challenge>.py
+- 4. Auto-scored immediately; result printed inline
+- 5. For --prompts: press Enter to continue to next challenge, ESC to exit
+- 6. Re-score the whole session: python run_eval.py --score -c manual/<timestamp>
 
 python run_eval.py --score                      # Score solutions/ directory
 python run_eval.py --score -c c01_off_by_one    # Score one challenge
