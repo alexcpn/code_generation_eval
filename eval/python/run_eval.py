@@ -362,6 +362,21 @@ def display_scorecard(results: list[ChallengeResult], title: str = "Python"):
     print()
 
 
+def show_list(challenges: list[ChallengeInfo]):
+    """Print a compact table of all challenge IDs, categories, difficulty, and points."""
+    total_pts = sum(c.points for c in challenges)
+    print()
+    print(f"  {'ID':<28} {'Category':<26} {'Diff':>4}  {'Pts':>4}")
+    print(f"  {'─'*66}")
+    for c in challenges:
+        cat = CATEGORIES.get(c.category, c.category)
+        diff = "*" * c.difficulty
+        print(f"  {c.name:<28} {cat:<26} {diff:>4}  {c.points:>4}")
+    print(f"  {'─'*66}")
+    print(f"  {len(challenges)} challenges{'':<41} {total_pts:>4} pts")
+    print()
+
+
 def show_prompts(challenges: list[ChallengeInfo], specific: str = None):
     for c in challenges:
         if specific and c.name != specific:
@@ -374,6 +389,110 @@ def show_prompts(challenges: list[ChallengeInfo], specific: str = None):
         print(c.prompt)
         print(f"\n  Save to: solutions/{c.name}.py")
         print(f"{'='*70}")
+
+
+# ---------------------------------------------------------------------------
+# Interactive mode: paste solution, auto-save, auto-score
+# ---------------------------------------------------------------------------
+
+def read_multiline_paste() -> str:
+    """Read multiline input until Ctrl+D (EOF)."""
+    try:
+        return sys.stdin.read().strip()
+    except KeyboardInterrupt:
+        return ""
+
+
+def wait_for_keypress_continue() -> bool:
+    """Wait for a single keypress. Returns True to continue, False on ESC."""
+    print("\n  Press Enter to continue, ESC to exit...", end="", flush=True)
+    try:
+        import termios
+        import tty
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        print()
+        return ch != "\x1b"
+    except (ImportError, Exception):
+        # Fallback for environments without termios (Windows, non-tty)
+        try:
+            user_input = input()
+            return user_input.lower() != "q"
+        except EOFError:
+            return False
+
+
+def interactive_session(challenges: list[ChallengeInfo], specific: str | None = None):
+    """Show challenge prompt(s), read pasted solutions, save and score each.
+
+    Solutions are saved to:  solutions/manual/<timestamp>/<challenge>.py
+    All challenges in one --prompts run share the same timestamp folder so
+    they can be re-scored together with --score -c manual/<timestamp>.
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    session_dir = SOLUTIONS_DIR / "manual" / timestamp
+    session_dir.mkdir(parents=True, exist_ok=True)
+    (session_dir / "__init__.py").touch()
+
+    to_run = [c for c in challenges if specific is None or c.name == specific]
+    total = len(to_run)
+    all_results = []
+
+    for i, c in enumerate(to_run):
+        # Show challenge header and prompt
+        print(f"\n{'='*70}")
+        print(f"  CHALLENGE: {c.name}  ({i+1}/{total})")
+        print(f"  Category:  {CATEGORIES.get(c.category, c.category)}")
+        print(f"  Points:    {c.points}  |  Difficulty: {'*' * c.difficulty}")
+        print(f"{'='*70}\n")
+        print(c.prompt)
+        print(f"\n{'─'*70}")
+        print("  Paste your solution, then press Ctrl+D:")
+        print(f"{'─'*70}\n")
+
+        code = read_multiline_paste()
+
+        if not code.strip():
+            print("  (no input — skipping)")
+            if i < total - 1:
+                if not wait_for_keypress_continue():
+                    break
+            continue
+
+        # Save solution
+        solution_file = session_dir / f"{c.name}.py"
+        solution_file.write_text(code)
+        print(f"\n  Saved: solutions/manual/{timestamp}/{c.name}.py")
+
+        # Score it
+        print(f"  Scoring...", end=" ", flush=True)
+        r = run_challenge_tests(c, solutions_dir=session_dir)
+        all_results.append(r)
+        status = "PASS" if r.points_earned == r.points_total else "PARTIAL"
+        print(f"[{status}] {r.points_earned}/{r.points_total}")
+        first_line = r.details.split("\n")[0]
+        print(f"  {first_line}")
+
+        # Wait between challenges (not after the last one)
+        if i < total - 1:
+            if not wait_for_keypress_continue():
+                print("  Exiting.")
+                break
+
+    # Final scorecard for multi-challenge sessions
+    if len(all_results) > 1:
+        display_scorecard(all_results, title=f"Python — manual/{timestamp}")
+        print(f"  Re-score: python3 run_eval.py --score -c manual/{timestamp}")
+    elif all_results:
+        print(f"\n  Re-score: python3 run_eval.py --score -c manual/{timestamp}")
+    elif not to_run:
+        print(f"  No challenges matched.")
+    print()
 
 
 def run_compare():
@@ -501,6 +620,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  python run_eval.py --list                                 # List all challenge IDs and points
   python run_eval.py --prompts                              # Show prompts for manual use
   python run_eval.py --score                                # Score solutions/ directory
   python run_eval.py --score -c gemini3_fast                # Score all in solutions/gemini3_fast/
@@ -512,6 +632,7 @@ Examples:
   python run_eval.py --score -c gpt-4o/2026-02-19_114523    # Score a timestamped auto run
         """,
     )
+    parser.add_argument("--list", action="store_true", help="List all challenge IDs and points")
     parser.add_argument("--prompts", action="store_true", help="Show all challenge prompts")
     parser.add_argument("--prompt", type=str, help="Show one challenge prompt")
     parser.add_argument("--score", action="store_true", help="Score solutions/ directory (manual mode)")
@@ -526,8 +647,11 @@ Examples:
         print("No challenges found in challenges/")
         sys.exit(1)
 
-    if args.prompts or args.prompt:
-        show_prompts(challenges, specific=args.prompt)
+    if args.list:
+        show_list(challenges)
+
+    elif args.prompts or args.prompt:
+        interactive_session(challenges, specific=args.prompt)
 
     elif args.score:
         # Resolve model folder and challenge filter from -c argument.
@@ -612,7 +736,8 @@ Examples:
         print(f"  {len(challenges)} challenges | {sum(c.points for c in challenges)} total points")
         print()
         print("Modes:")
-        print("  --prompts                  Show challenge prompts (for manual copy-paste)")
+        print("  --list                     List all challenge IDs and points")
+        print("  --prompts                  Show all challenge prompts (for manual copy-paste)")
         print("  --score                    Score solutions/ directory (manual mode)")
         print("  --auto                     Query models via API and score automatically")
         print("  --auto --model MODEL       Query a single model")
