@@ -237,6 +237,40 @@ python3 run_eval.py --auto --model gpt-5.4
 ```
 
 
+### Gemma4 8B (local, Ollama)
+
+```
+python3 run_eval.py --auto --model gemma4
+
+============================================================
+  AI CODE GENERATION EVAL — Python — gemma4/2026-04-13_121413
+============================================================
+
+  Category                          Score    Pct
+  ────────────────────────────────────────────────
+  Algorithmic Correctness        41.3/45     92%
+  Edge Cases & Boundaries        11.9/15     79%
+  Security                        4.3/15     29%
+  Concurrency                     8.9/10     89%
+  Error Handling                 10.0/10    100%
+  Design & SOLID                  9.1/20     46%
+  Refactoring                    10.0/10    100%
+  ────────────────────────────────────────────────
+  TOTAL                          95.5/125    76%
+
+  Weaknesses:
+    - Algorithmic Correctness: c02_floating_point (9/10 tests passed)
+    - Edge Cases & Boundaries: c03_edge_cases (8/10 tests passed)
+    - Security: c04_security (4/14 tests passed)
+    - Concurrency: c05_concurrency (8/9 tests passed)
+    - Design & SOLID: c07_design_solid (5/11 tests passed)
+    - Edge Cases & Boundaries: c09_edge_boundaries (7/9 tests passed)
+    - Algorithmic Correctness: c10_test_generation (3/4 tests passed)
+
+  Model tier: Sonnet-class (strong)
+```
+
+
 ### Compare Mode
 After running multiple models, compare them side-by-side:
 
