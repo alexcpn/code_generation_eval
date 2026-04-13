@@ -30,7 +30,9 @@ import time
 from pathlib import Path
 from dataclasses import dataclass, asdict
 from datetime import datetime
+import dotenv
 
+dotenv.load_dotenv()
 
 EVAL_DIR = Path(__file__).parent
 CHALLENGES_DIR = EVAL_DIR / "challenges"
@@ -640,6 +642,8 @@ Examples:
     parser.add_argument("--model", "-m", type=str, help="Specific model name from eval_config.yaml")
     parser.add_argument("--challenge", "-c", type=str, help="Specific challenge name")
     parser.add_argument("--compare", action="store_true", help="Compare all evaluated models")
+    parser.add_argument("--re-extract", action="store_true",
+                        help="Re-extract .py files from .raw.txt using latest extract_code logic")
     args = parser.parse_args()
 
     challenges = discover_challenges()
@@ -702,6 +706,25 @@ Examples:
             )
             print(f"[{status}] {r.points_earned}/{r.points_total}")
         display_scorecard(results, title=title)
+
+    elif args.re_extract:
+        from providers import extract_code
+        # Find all .raw.txt files, re-extract .py from them
+        target = args.challenge or ""
+        count = 0
+        for raw_file in sorted(SOLUTIONS_DIR.rglob("*.raw.txt")):
+            if target and target not in str(raw_file):
+                continue
+            py_file = raw_file.with_suffix("").with_suffix(".py")  # foo.raw.txt -> foo.py
+            raw_text = raw_file.read_text()
+            new_code = extract_code(raw_text)
+            old_code = py_file.read_text() if py_file.exists() else ""
+            if new_code != old_code:
+                py_file.write_text(new_code)
+                rel = raw_file.relative_to(SOLUTIONS_DIR)
+                print(f"  Updated: {rel.with_suffix('').with_suffix('.py')}")
+                count += 1
+        print(f"  {count} file(s) re-extracted." if count else "  All .py files already up to date.")
 
     elif args.auto:
         config = load_config()

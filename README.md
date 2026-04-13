@@ -100,7 +100,7 @@ python run_eval.py --score -c c01_off_by_one    # Score one challenge
 
 # Auto Mode - If you have API keys and billing set
 
-# Set API keys for the providers you want to test
+# Set API keys for the providers you want to test or set this in .env file
 export ANTHROPIC_API_KEY=sk-ant-...
 export OPENAI_API_KEY=sk-...
 export GOOGLE_API_KEY=AI...
@@ -188,6 +188,53 @@ export GOOGLE_API_KEY=xxx ()
   Re-score: python3 run_eval.py --score -c gemini-2.5-flash/2026-02-19_154626
 ```
 
+### GPT 5.4 (not pro)
+
+```
+python3 run_eval.py --auto --model gpt-5.4
+
+  Model: gpt-5.4 (openai/gpt-5.4)
+  Output: solutions/gpt-5.4/2026-03-06_115138/
+  ───────────────────────────────────────────────────────
+  c01_off_by_one: querying gpt-5.4... (4.0s) -> [PASS] 8.0/8
+  c02_floating_point: querying gpt-5.4... (6.8s) -> [PASS] 12.0/12
+  c03_edge_cases: querying gpt-5.4... (10.1s) -> [PASS] 10.0/10
+  c04_security: querying gpt-5.4... (11.3s) -> [PASS] 15.0/15
+  c05_concurrency: querying gpt-5.4... (6.8s) -> [PARTIAL] 8.9/10
+  c06_error_handling: querying gpt-5.4... (14.3s) -> [PARTIAL] 3.0/10
+  c07_design_solid: querying gpt-5.4... (11.3s) -> [PARTIAL] 10.9/20
+  c08_refactoring: querying gpt-5.4... (6.6s) -> [PASS] 10.0/10
+  c09_edge_boundaries: querying gpt-5.4... (6.8s) -> [PARTIAL] 4.4/5
+  c10_test_generation: querying gpt-5.4... (6.5s) -> [PARTIAL] 7.5/10
+  c11_algorithmic_hard: querying gpt-5.4... (9.6s) -> [PASS] 15.0/15
+
+============================================================
+  AI CODE GENERATION EVAL — Python — gpt-5.4/2026-03-06_115138
+============================================================
+
+  Category                          Score    Pct
+  ────────────────────────────────────────────────
+  Algorithmic Correctness        42.5/45     94%
+  Edge Cases & Boundaries        14.4/15     96%
+  Security                       15.0/15    100%
+  Concurrency                     8.9/10     89%
+  Error Handling                  3.0/10     30%
+  Design & SOLID                 10.9/20     54%
+  Refactoring                    10.0/10    100%
+  ────────────────────────────────────────────────
+  TOTAL                          104.7/125    84%
+
+  Weaknesses:
+    - Concurrency: c05_concurrency (8/9 tests passed)
+    - Error Handling: c06_error_handling (3/10 tests passed)
+    - Design & SOLID: c07_design_solid (6/11 tests passed)
+    - Edge Cases & Boundaries: c09_edge_boundaries (8/9 tests passed)
+    - Algorithmic Correctness: c10_test_generation (3/4 tests passed)
+
+  Model tier: Sonnet-class (strong)
+
+  Re-score: python3 run_eval.py --score -c gpt-5.4/2026-03-06_115138
+```
 
 
 ### Compare Mode
@@ -247,9 +294,16 @@ models:
     model: deepseek-chat
     api_key_env: DEEPSEEK_API_KEY
     api_base: https://api.deepseek.com/v1
+
+  # Local models via Ollama
+  gemma4:
+    provider: openai
+    model: gemma4:latest
+    api_key: ollama                   # Ollama doesn't need a real key
+    api_base: http://localhost:11434/v1/
 ```
 
-**Supported providers:** `anthropic`, `openai` (+ any OpenAI-compatible API via `api_base`), `google`
+**Supported providers:** `anthropic`, `openai` (+ any OpenAI-compatible API via `api_base`, including Ollama)
 
 ## File Structure
 

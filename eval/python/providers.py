@@ -16,36 +16,77 @@ import os
 import re
 
 
+def _compiles(code: str) -> bool:
+    """Check whether a string is valid Python."""
+    try:
+        compile(code, "<extract>", "exec")
+        return True
+    except SyntaxError:
+        return False
+
+
 def extract_code(response: str) -> str:
     """Extract Python code from a model response.
 
-    Models often wrap code in ```python ... ``` blocks or add explanations.
-    This extracts just the code.
+    Models return code in many formats:
+      - Clean code with no fences (ideal)
+      - ```python ... ``` fenced blocks (common)
+      - ``` ... ``` fenced blocks without language tag
+      - Multiple fenced blocks with prose between them
+      - Code with only an opening or only a closing fence
+      - Code preceded/followed by prose explanation
+
+    Strategy: try the cheapest extraction first, validate with compile(),
+    and fall back progressively to more aggressive cleaning.
     """
-    # Try to find fenced code blocks (```python ... ``` or ``` ... ```)
-    fenced = re.findall(r"```(?:python)?\s*\n(.*?)```", response, re.DOTALL)
-    if fenced:
-        # If multiple blocks, join them (model may split imports from implementation)
-        return "\n\n".join(block.strip() for block in fenced)
+    text = response.strip()
 
-    # If no fences, check if the whole response looks like code
-    lines = response.strip().split("\n")
-    code_lines = [
-        l for l in lines
-        if not l.startswith("Here") and not l.startswith("This ")
-        and not l.startswith("Note:") and not l.startswith("The ")
-        and not l.startswith("I ")
-    ]
-    # If most lines look like code (start with def, class, import, #, whitespace, or are empty)
-    code_like = sum(
-        1 for l in code_lines
-        if re.match(r"^(\s|def |class |import |from |#|@|$)", l)
+    # Step 1: If the raw response already compiles, return it as-is.
+    if _compiles(text):
+        return text
+
+    # Step 2: Try to extract fenced code blocks.
+    fenced = re.findall(
+        r"```(?:python|py)?\s*\n(.*?)```",
+        text,
+        re.DOTALL,
     )
-    if code_like > len(code_lines) * 0.5:
-        return "\n".join(code_lines)
+    if fenced:
+        code = "\n\n".join(block.strip() for block in fenced)
+        if _compiles(code):
+            return code
 
-    # Fallback: return everything
-    return response.strip()
+    # Step 3: Strip orphan fence markers (``` without a matching pair).
+    lines = text.split("\n")
+    cleaned = [
+        line for line in lines
+        if not re.match(r"^\s*```(?:python|py)?\s*$", line.strip())
+    ]
+    code = "\n".join(cleaned).strip()
+    if _compiles(code):
+        return code
+
+    # Step 4: Trim leading/trailing prose by finding the largest
+    # contiguous block that compiles. Start from the first line that
+    # looks like code (import/def/class/@/from) and take everything
+    # from there to the end, then shrink from the end if needed.
+    first_code_re = re.compile(
+        r"^\s*(import |from |def |class |@)"
+    )
+    for start in range(len(cleaned)):
+        if first_code_re.match(cleaned[start]):
+            candidate = "\n".join(cleaned[start:]).strip()
+            if _compiles(candidate):
+                return candidate
+            # Try trimming trailing prose lines from the end
+            for end in range(len(cleaned) - 1, start, -1):
+                candidate = "\n".join(cleaned[start:end + 1]).strip()
+                if _compiles(candidate):
+                    return candidate
+            break  # Found the code start but couldn't make it compile
+
+    # Step 5: Fallback — return fence-stripped text (best effort).
+    return code
 
 
 def _resolve_api_key(model_config: dict) -> str:
@@ -113,7 +154,7 @@ def send_openai(system: str, user: str, config: dict) -> str:
     else:
         response = client.chat.completions.create(
             model=model,
-            max_tokens=config.get("max_tokens", 4096),
+            max_completion_tokens=config.get("max_tokens", 4096),
             temperature=config.get("temperature", 0.0),
             messages=[
                 {"role": "system", "content": system},

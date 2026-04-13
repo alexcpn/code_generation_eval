@@ -11,6 +11,7 @@
 # System prompt sent to every model before the challenge prompt
 system_prompt: |
   You are a senior Python developer. Write clean, production-quality Python code.
+  Target Python 3.10 compatibility — do not use features added in 3.11+ (e.g. no backslashes in f-string expressions, no except* syntax).
   Return ONLY the Python code — no explanations, no markdown fences, no commentary.
   If the prompt asks for a function, write the function. If it asks for a class, write the class.
   Include all necessary imports at the top.
@@ -21,7 +22,6 @@ models:
     provider: anthropic
     model: claude-opus-4-6
     api_key_env: ANTHROPIC_API_KEY    # reads from this env var
-    # api_key: sk-ant-...            # or hardcode (not recommended)
     temperature: 0.0
     max_tokens: 4096
 
@@ -40,9 +40,9 @@ models:
     temperature: 0.0
     max_tokens: 4096
 
-  gpt-4o-mini:
+  gpt-5.4:
     provider: openai
-    model: gpt-4o-mini
+    model: gpt-5.4
     api_key_env: OPENAI_API_KEY
     temperature: 0.0
     max_tokens: 4096
@@ -78,6 +78,15 @@ models:
     api_base: https://generativelanguage.googleapis.com/v1beta/openai/
     temperature: 0.0
     max_tokens: 8192
+
+  # --- Local (Ollama) ---
+  gemma4:
+    provider: openai
+    model: gemma4:latest
+    api_key: ollama                   # Ollama doesn't need a real key
+    api_base: http://localhost:11434/v1/
+    temperature: 0.0
+    max_tokens: 4096
 
   # --- DeepSeek ---
   # deepseek-v3:
